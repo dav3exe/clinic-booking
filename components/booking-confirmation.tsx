@@ -8,11 +8,12 @@ import type { Booking, Slot } from "@/lib/web-client";
 type BookingConfirmationProps = {
   booking: Booking;
   slot: Slot;
+  titleId: string;
   onDone: () => void;
   onViewBookings: () => void;
 };
 
-export function BookingConfirmation({ booking, slot, onDone, onViewBookings }: BookingConfirmationProps) {
+export function BookingConfirmation({ booking, slot, titleId, onDone, onViewBookings }: BookingConfirmationProps) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -26,68 +27,62 @@ export function BookingConfirmation({ booking, slot, onDone, onViewBookings }: B
   };
 
   return (
-    <div role="status" className="animate-rise overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-      <div className="bg-teal-600 p-5 text-white">
-        <span className="inline-flex size-10 items-center justify-center rounded-full bg-white/20">
-          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={3}>
-            <path d="m5 12 5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-        <h2 className="mt-3 text-xl font-semibold">You&apos;re booked</h2>
-        <p className="text-sm text-teal-50">We&apos;ve saved your appointment.</p>
-      </div>
+    <div role="status" className="p-6 sm:p-8">
+      <span className="inline-flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand">
+        <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden>
+          <path d="m5 12 5 5 9-10" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <h2 id={titleId} className="mt-4 font-display text-2xl font-bold tracking-tight">
+        You&apos;re booked
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        See you soon, {booking.name.split(" ")[0]}. Your visit with {slot.provider} is confirmed.
+      </p>
 
-      <div className="space-y-4 p-5">
-        <div className="flex items-center gap-3">
-          <Avatar name={slot.provider} />
+      <div className="mt-6 rounded-2xl bg-mint p-4">
+        <div className="flex items-center gap-4">
+          <Avatar name={slot.provider} size="lg" />
           <div>
-            <p className="font-semibold">{slot.provider}</p>
-            <p className="text-sm text-muted">
-              {formatDayHeading(slot.start)} · {formatRange(slot.start, slot.end)}
-            </p>
+            <p className="font-display text-lg font-semibold">{slot.provider}</p>
+            <p className="text-sm text-foreground/75">{formatDayHeading(slot.start)}</p>
+            <p className="text-sm font-semibold text-brand">{formatRange(slot.start, slot.end)}</p>
           </div>
         </div>
-
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl bg-background p-4 text-sm">
+        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 border-t border-brand/15 pt-4 text-sm">
           <dt className="text-muted">Name</dt>
           <dd className="font-medium">{booking.name}</dd>
           <dt className="text-muted">Email</dt>
           <dd className="break-all font-medium">{booking.email}</dd>
-          <dt className="text-muted">Status</dt>
-          <dd>
-            <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium capitalize text-teal-800 dark:bg-teal-900/50 dark:text-teal-200">
-              {booking.status}
-            </span>
-          </dd>
         </dl>
+      </div>
 
-        <div>
-          <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted">Booking reference</p>
-          <div className="flex items-center gap-2 rounded-xl border border-line p-2 pl-3">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs">{booking.id}</code>
-            <button
-              onClick={copy}
-              className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-background"
-            >
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
+      <div className="mt-5">
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted">Booking reference</p>
+        <div className="flex items-center gap-2 rounded-full border border-line py-1.5 pl-4 pr-1.5">
+          <code className="min-w-0 flex-1 truncate font-mono text-xs">{booking.id}</code>
           <button
-            onClick={onViewBookings}
-            className="rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:bg-background"
+            onClick={copy}
+            className="shrink-0 rounded-full bg-mint px-3 py-1 text-xs font-semibold transition hover:bg-brand-soft"
           >
-            My bookings
-          </button>
-          <button
-            onClick={onDone}
-            className="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
-          >
-            Book another
+            {copied ? "Copied" : "Copy"}
           </button>
         </div>
+      </div>
+
+      <div className="mt-7 grid gap-2 sm:grid-cols-2">
+        <button
+          onClick={onViewBookings}
+          className="rounded-full border border-line px-4 py-3 text-sm font-semibold transition hover:bg-mint"
+        >
+          My bookings
+        </button>
+        <button
+          onClick={onDone}
+          className="rounded-full bg-brand px-4 py-3 text-sm font-semibold text-on-brand transition hover:bg-brand-strong"
+        >
+          Done
+        </button>
       </div>
     </div>
   );

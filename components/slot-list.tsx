@@ -1,149 +1,183 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Avatar } from "@/components/avatar";
-import { dayKey, formatDayHeading, formatTime } from "@/components/format";
-import { fetchSlots, queryKeys, type Slot } from "@/lib/web-client";
+import {
+  formatDayHeading,
+  formatDayNumber,
+  formatMonthShort,
+  formatTime,
+  formatWeekdayShort,
+  relativeDay,
+} from "@/components/format";
+import { useSchedule, type ScheduleSlot } from "@/hooks/use-schedule";
+import type { Slot } from "@/lib/web-client";
 
 type SlotListProps = { selectedId: string | null; onSelect: (slot: Slot) => void };
-type SlotRow = Slot & { past: boolean };
 
-function groupByDay(slots: SlotRow[]) {
-  const days = new Map<string, SlotRow[]>();
-  for (const slot of slots) {
-    const key = dayKey(slot.start);
-    days.set(key, [...(days.get(key) ?? []), slot]);
-  }
-  return [...days.values()];
-}
-
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TimeButton({ slot, selected, onSelect }: { slot: ScheduleSlot; selected: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-        active
-          ? "border-teal-600 bg-teal-600 text-white"
-          : "border-line bg-surface text-foreground hover:border-teal-500"
+      disabled={!slot.bookable}
+      onClick={onSelect}
+      aria-pressed={selected}
+      aria-label={`${formatTime(slot.start)} with ${slot.provider}${slot.bookable ? "" : ", booked"}`}
+      className={`min-w-[5.5rem] rounded-full border px-4 py-2 text-sm font-semibold tabular-nums transition ${
+        selected
+          ? "border-brand bg-brand text-on-brand"
+          : slot.bookable
+            ? "border-brand/70 text-brand hover:bg-brand-soft"
+            : "cursor-not-allowed border-dashed border-line text-muted line-through decoration-1"
       }`}
     >
-      {children}
+      {formatTime(slot.start)}
     </button>
   );
 }
 
 export function SlotList({ selectedId, onSelect }: SlotListProps) {
-  const [provider, setProvider] = useState("");
-  const [showPast, setShowPast] = useState(false);
-  const slots = useQuery({
-    queryKey: queryKeys.slots(provider),
-    queryFn: () => fetchSlots(provider),
-    // Evaluated on each fetch (not during render) so "past" stays pure.
-    select: (data) => data.map((slot) => ({ ...slot, past: new Date(slot.start).getTime() <= Date.now() })),
-  });
-  // Provider options come from the unfiltered list so the chips do not collapse after filtering.
-  const all = useQuery({ queryKey: queryKeys.slots(""), queryFn: () => fetchSlots("") });
-  const providers = [...new Set((all.data ?? []).map((slot) => slot.provider))].sort();
+  const schedule = useSchedule();
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
 
-  const visible = (slots.data ?? []).filter((slot) => showPast || !slot.past);
-  const pastCount = (slots.data ?? []).length - visible.length;
-  const days = groupByDay(visible);
+  // The patient-facing page only offers what can still be booked; past slots stay out of the way.
+  const upcoming = (schedule.data?.slots ?? []).filter((slot) => !slot.past);
+  const days = [...new Map(upcoming.map((slot) => [slot.day, slot.start])).entries()];
+  const day = pickedDay && days.some(([key]) => key === pickedDay) ? pickedDay : days[0]?.[0];
+  const providers = [...new Set(upcoming.map((slot) => slot.provider))].sort();
+  const dayStart = days.find(([key]) => key === day)?.[1];
 
   return (
-    <section aria-labelledby="slots-heading" className="min-w-0 space-y-5">
-      <h2 id="slots-heading" className="sr-only">
-        Available slots
-      </h2>
-
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-        <Chip active={provider === ""} onClick={() => setProvider("")}>
-          All doctors
-        </Chip>
-        {providers.map((name) => (
-          <Chip key={name} active={provider === name} onClick={() => setProvider(name)}>
-            <Avatar name={name} size="sm" />
-            {name}
-          </Chip>
-        ))}
+    <section id="doctors" aria-labelledby="doctors-heading" className="scroll-mt-24">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 id="doctors-heading" className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+            Meet our doctors
+          </h2>
+          <p className="mt-2 text-muted">Choose a day, then tap a time to book.</p>
+        </div>
       </div>
 
-      {slots.isPending && (
-        <div className="space-y-3" aria-label="Loading slots">
-          {[0, 1].map((i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-line/60" />
+      {schedule.isPending && (
+        <div className="mt-8 space-y-4" aria-label="Loading schedule">
+          <div className="flex gap-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 w-16 animate-pulse rounded-2xl bg-mint" />
+            ))}
+          </div>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-mint" />
           ))}
         </div>
       )}
 
-      {slots.isError && (
-        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+      {schedule.isError && (
+        <div
+          role="alert"
+          className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+        >
           We couldn&apos;t load the schedule.{" "}
-          <button className="font-medium underline" onClick={() => slots.refetch()}>
+          <button className="font-semibold underline" onClick={() => schedule.refetch()}>
             Try again
           </button>
         </div>
       )}
 
-      {slots.isSuccess && days.length === 0 && (
-        <div className="rounded-2xl border border-line bg-surface p-8 text-center">
-          <p className="font-medium">No upcoming slots</p>
+      {schedule.isSuccess && days.length === 0 && (
+        <div className="mt-8 rounded-3xl bg-mint p-10 text-center">
+          <p className="font-display text-xl font-semibold">No upcoming times</p>
           <p className="mt-1 text-sm text-muted">Check back soon, new times are added regularly.</p>
         </div>
       )}
 
-      {days.map((daySlots) => {
-        const open = daySlots.filter((slot) => slot.available && !slot.past).length;
-        return (
-          <div key={dayKey(daySlots[0].start)} className="animate-rise rounded-2xl border border-line bg-surface p-4 sm:p-5">
-            <div className="mb-3 flex items-baseline justify-between gap-2">
-              <h3 className="font-semibold">{formatDayHeading(daySlots[0].start)}</h3>
-              <span className="text-xs text-muted">{open} open</span>
-            </div>
-            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-              {daySlots.map((slot) => {
-                const bookable = slot.available && !slot.past;
-                const selected = slot.id === selectedId;
-                return (
-                  <li key={slot.id}>
+      {schedule.data && day && (
+        <>
+          <div role="tablist" aria-label="Day" className="-mx-4 mt-8 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+            {days.map(([key, start]) => {
+              const active = key === day;
+              const open = upcoming.filter((slot) => slot.day === key && slot.bookable).length;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={`${formatDayHeading(start)}, ${open} open`}
+                  onClick={() => setPickedDay(key)}
+                  className={`flex w-[4.5rem] shrink-0 flex-col items-center rounded-2xl border px-2 py-2.5 transition ${
+                    active ? "border-brand bg-brand text-on-brand" : "border-line hover:border-brand/60 hover:bg-mint"
+                  }`}
+                >
+                  <span className={`text-xs font-medium ${active ? "" : "text-muted"}`}>{formatWeekdayShort(start)}</span>
+                  <span className="font-display text-2xl font-bold leading-tight">{formatDayNumber(start)}</span>
+                  <span className={`text-[11px] ${active ? "opacity-90" : "text-muted"}`}>
+                    {open > 0 ? `${open} open` : formatMonthShort(start)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {dayStart && (
+            <p className="mt-6 text-sm font-semibold">
+              {relativeDay(dayStart, schedule.data.today, schedule.data.tomorrow)}
+              {relativeDay(dayStart, schedule.data.today, schedule.data.tomorrow) !== formatDayHeading(dayStart) && (
+                <span className="font-normal text-muted"> · {formatDayHeading(dayStart)}</span>
+              )}
+            </p>
+          )}
+
+          <ul className="mt-3 divide-y divide-line border-y border-line">
+            {providers.map((provider) => {
+              const times = upcoming.filter((slot) => slot.day === day && slot.provider === provider);
+              const open = times.filter((slot) => slot.bookable).length;
+              const nextOpen = upcoming.find((slot) => slot.provider === provider && slot.bookable && slot.day > day);
+              return (
+                <li key={provider} className="animate-rise grid gap-4 py-6 md:grid-cols-[16rem_1fr] md:gap-8">
+                  <div className="flex items-center gap-4">
+                    <Avatar name={provider} size="lg" />
+                    <div>
+                      <p className="font-display text-lg font-semibold">{provider}</p>
+                      <p className="flex items-center gap-1.5 text-sm text-muted">
+                        <span
+                          aria-hidden
+                          className={`size-2 rounded-full ${open > 0 ? "bg-brand" : "bg-line"}`}
+                        />
+                        {open > 0 ? `${open} open time${open === 1 ? "" : "s"}` : "Fully booked this day"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {times.length > 0 ? (
+                    <div className="flex flex-wrap content-center gap-2">
+                      {times.map((slot) => (
+                        <TimeButton
+                          key={slot.id}
+                          slot={slot}
+                          selected={slot.id === selectedId}
+                          onSelect={() => onSelect(slot)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-sm text-muted">No times this day.</div>
+                  )}
+
+                  {open === 0 && nextOpen && (
                     <button
                       type="button"
-                      disabled={!bookable}
-                      onClick={() => onSelect(slot)}
-                      aria-pressed={selected}
-                      aria-label={`${formatTime(slot.start)} with ${slot.provider}${bookable ? "" : slot.past ? ", past" : ", booked"}`}
-                      className={`group flex w-full items-center gap-2.5 rounded-xl border p-2.5 text-left transition ${
-                        selected
-                          ? "border-teal-600 bg-teal-50 ring-1 ring-teal-600 dark:bg-teal-950/40"
-                          : bookable
-                            ? "border-line hover:-translate-y-px hover:border-teal-500 hover:shadow-sm"
-                            : "cursor-not-allowed border-transparent bg-background opacity-60"
-                      }`}
+                      onClick={() => setPickedDay(nextOpen.day)}
+                      className="justify-self-start text-sm font-semibold text-brand hover:underline md:col-start-2"
                     >
-                      <Avatar name={slot.provider} size="sm" />
-                      <span className="min-w-0">
-                        <span className={`block font-semibold tabular-nums ${bookable ? "" : "line-through decoration-1"}`}>
-                          {formatTime(slot.start)}
-                        </span>
-                        <span className="block truncate text-xs text-muted">
-                          {bookable ? slot.provider : slot.past ? "Past" : "Booked"}
-                        </span>
-                      </span>
+                      Next available: {relativeDay(nextOpen.start, schedule.data.today, schedule.data.tomorrow)},{" "}
+                      {formatTime(nextOpen.start)} ›
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
-
-      {pastCount > 0 && (
-        <button onClick={() => setShowPast((v) => !v)} className="text-sm text-muted underline hover:text-foreground">
-          {showPast ? "Hide past slots" : `Show ${pastCount} past slot${pastCount === 1 ? "" : "s"}`}
-        </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </section>
   );

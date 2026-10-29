@@ -12,6 +12,20 @@ export const formatTime = (iso: string) =>
 
 export const formatRange = (start: string, end: string) => `${formatTime(start)} – ${formatTime(end)}`;
 
+export const formatWeekdayShort = (iso: string) => new Date(iso).toLocaleDateString("en-US", { weekday: "short" });
+
+export const formatDayNumber = (iso: string) => new Date(iso).toLocaleDateString("en-US", { day: "numeric" });
+
+export const formatMonthShort = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short" });
+
+/** "Today", "Tomorrow" or the full day heading. `today`/`tomorrow` are day keys computed outside render. */
+export const relativeDay = (iso: string, today: string, tomorrow: string) => {
+  const key = dayKey(iso);
+  if (key === today) return "Today";
+  if (key === tomorrow) return "Tomorrow";
+  return formatDayHeading(iso);
+};
+
 export const initials = (name: string) =>
   name
     .replace(/^(dr|mr|mrs|ms)\.?\s+/i, "")
