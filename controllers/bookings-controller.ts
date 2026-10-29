@@ -7,16 +7,25 @@ export async function createBookingController(req: Request): Promise<Response> {
   return json(result.body, result.status);
 }
 
-export async function listBookingsController(req: Request): Promise<Response> {
+async function listBookingsResponse(req: Request, newestFirst: boolean): Promise<Response> {
   const params = new URL(req.url).searchParams;
   return json(
-    await listBookings({
-      email: params.get("email") ?? undefined,
-      limit: params.get("limit") ?? undefined,
-      cursor: params.get("cursor") ?? undefined,
-    }),
+    await listBookings(
+      {
+        email: params.get("email") ?? undefined,
+        limit: params.get("limit") ?? undefined,
+        cursor: params.get("cursor") ?? undefined,
+      },
+      { newestFirst },
+    ),
   );
 }
+
+/** Public API: oldest first, as the spec requires. */
+export const listBookingsController = (req: Request) => listBookingsResponse(req, false);
+
+/** Clinic web page: newest first, so the latest booking is at the top. */
+export const listBookingsNewestFirstController = (req: Request) => listBookingsResponse(req, true);
 
 export async function getBookingController(_req: Request, ctx: RouteContext): Promise<Response> {
   const { id } = await ctx.params;

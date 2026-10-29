@@ -178,6 +178,31 @@ describe("level 4: idempotency and pagination", () => {
     expect(seen).toEqual(ids);
   });
 
+  it("lists newest first on the web page route, cancelled ones included", async () => {
+    const webBookingsRoute: { GET: Handler } = await import("@/app/web/bookings/route");
+    await call(resetRoute.POST, "/reset", {
+      method: "POST",
+      body: JSON.stringify({
+        slots: Array.from({ length: 5 }, (_, i) => ({ id: `w${i}`, provider: "Dr Ade", start: future(5 + i), end: future(5 + i, 10) })),
+      }),
+    });
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) ids.push((await (await book(`w${i}`, "web@example.com")).json()).id);
+    await call(bookingRoute.DELETE, `/bookings/${ids[1]}`, { method: "DELETE" }, { id: ids[1] });
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const url: string = `/web/bookings?email=web@example.com&limit=2${cursor ? `&cursor=${cursor}` : ""}`;
+      const page: { bookings: { id: string }[]; next_cursor: string | null } = await (
+        await call(webBookingsRoute.GET, url, { key: null })
+      ).json();
+      seen.push(...page.bookings.map((b) => b.id));
+      cursor = page.next_cursor;
+    } while (cursor);
+    expect(seen).toEqual([...ids].reverse());
+  });
+
   it("rejects bad limits, a missing email and a bad cursor", async () => {
     for (const q of ["limit=0", "limit=51", "limit=abc", "limit=1.5"]) {
       expect((await call(bookingsRoute.GET, `/bookings?email=a@b.co&${q}`)).status).toBe(400);

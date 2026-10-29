@@ -140,22 +140,31 @@ function decodeCursor(raw: string): Cursor {
   throw new ApiError(400, "cursor is invalid");
 }
 
-export async function listBookings(query: Record<string, string | undefined>) {
+/**
+ * A person's bookings, a page at a time. The public API is oldest first (as the spec requires);
+ * the clinic web page asks for newest first so the latest booking sits at the top.
+ */
+export async function listBookings(
+  query: Record<string, string | undefined>,
+  { newestFirst = false }: { newestFirst?: boolean } = {},
+) {
   const parsed = listBookingsQuerySchema.safeParse(query);
   if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message ?? "invalid query");
 
   const email = parsed.data.email.toLowerCase();
   const limit = parsed.data.limit ?? 10;
   const filter: Record<string, unknown> = { email };
+  const after = newestFirst ? "$lt" : "$gt";
+  const direction = newestFirst ? -1 : 1;
 
   if (parsed.data.cursor) {
     const { t, i } = decodeCursor(parsed.data.cursor);
-    filter.$or = [{ created_at: { $gt: new Date(t) } }, { created_at: new Date(t), _id: { $gt: i } }];
+    filter.$or = [{ created_at: { [after]: new Date(t) } }, { created_at: new Date(t), _id: { [after]: i } }];
   }
 
   // Fetch one extra row to know whether another page exists without a second count query.
   const rows = await BookingModel.find(filter)
-    .sort({ created_at: 1, _id: 1 })
+    .sort({ created_at: direction, _id: direction })
     .limit(limit + 1)
     .lean();
   const page = rows.slice(0, limit);
