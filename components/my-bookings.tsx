@@ -57,6 +57,16 @@ export function MyBookings({ initialEmail = "", onBook }: MyBookingsProps) {
 
   return (
     <section aria-labelledby="mine-heading">
+      <button
+        type="button"
+        onClick={onBook}
+        className="mb-3 inline-flex items-center gap-1.5 rounded-full py-2 pl-2 pr-4 text-sm font-semibold text-muted transition hover:bg-mint hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Back to book a visit
+      </button>
       <div className="rounded-[2rem] bg-mint px-6 py-10 sm:px-10 sm:py-12">
         <h1 id="mine-heading" className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
           My bookings
